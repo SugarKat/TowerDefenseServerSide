@@ -16,11 +16,13 @@ namespace SignalRTest
 
         public static Dictionary<int, Player> connectedPlayers;
         public static Dictionary<int, Room> activeRooms;
+        public static Dictionary<int, Room> activeRoomsByRoomID;
 
         static void Main(string[] args)
         {
             connectedPlayers = new Dictionary<int, Player>();
             activeRooms = new Dictionary<int, Room>();
+            activeRoomsByRoomID = new Dictionary<int, Room>();
             string url = "http://192.168.0.146:30502";
             using (WebApp.Start<Startup>(url))
             {

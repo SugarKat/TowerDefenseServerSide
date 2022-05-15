@@ -130,25 +130,113 @@ namespace SignalRTest
             Console.WriteLine($"Unknown user with {Context.ConnectionId} connection ID tried to send message");
             return false;
         }
-        public void createRoom(string name, int playerID)
+        //public void command(string comm, string toName)
+        //{
+        //    if (idMap.TryGetValue(Context.ConnectionId, out int _fromID))
+        //    {
+        //        if (currentUsers.ContainsValue(toName))
+        //        {
+        //            usersToIDConn.TryGetValue(toName, out string connection);
+        //            Clients.Client(connection).receiveMessage(comm);
+        //            Console.WriteLine("comm sent");
+        //        }
+        //        Console.WriteLine("Sender tried to send a message to non existant receiver");
+
+        //    }
+        //}
+        public void command(string comm, int roomID)
+        {
+            Program.activeRoomsByRoomID.TryGetValue(roomID, out Room room);
+            if (room.Host.ConnectionID == Context.ConnectionId)
+            {
+                Clients.Client(room.Guest.ConnectionID).receiveMessage(comm);
+            }
+            else if(room.Guest.ConnectionID == Context.ConnectionId)
+            {
+                Clients.Client(room.Host.ConnectionID).receiveMessage(comm);
+            }
+        }
+        public void startGame(string comm, int roomID)
+        {
+            Program.activeRoomsByRoomID.TryGetValue(roomID, out Room room);
+            Console.WriteLine($"Room {room.Name} started the game");
+            Clients.Client(room.Guest.ConnectionID).receiveMessage(comm);
+            Clients.Client(room.Host.ConnectionID).receiveMessage(comm);
+        }
+        #region Room handeling
+        public int createRoom(string name, int playerID)
         {
             Program.connectedPlayers.TryGetValue(playerID, out Player player);
             Room newRoom = new Room(name, player);
             Console.WriteLine($"Room created with name: {name} {newRoom.ID}, host:{player.Username}");
             Program.activeRooms.Add(playerID, newRoom);
+            Program.activeRoomsByRoomID.Add(newRoom.ID, newRoom);
+            return newRoom.ID;
+        }
+        public void deleteRoom(int hostID)
+        {
+            Room room;
+            Program.activeRooms.TryGetValue(hostID, out room);
+            if (room != null)
+            {
+                if (room.Guest != null)
+                {
+                    //Sent disconection notice to conected guest;
+                }
+            }
+            Program.activeRooms.Remove(hostID);
+            Console.WriteLine($"host with ID {hostID} deleted hosted room");
+        }
+        public string connectToRoom(int clientID, int roomID)
+        {
+            if (Program.activeRoomsByRoomID.TryGetValue(roomID, out Room room))
+            {
+                Program.connectedPlayers.TryGetValue(clientID, out Player client);
+                room.Guest = client;
+                string comm = $"roomUpdate;{room.Host.Username};{room.Guest.Username}";
+                Clients.Client(room.Host.ConnectionID).receiveMessage(comm);
+                return getRoomInfo(roomID);
+            }
+            else
+            {
+                Console.WriteLine("client tried to connect to non existing room");
+                return "error";
+            }
+        }
+        public string getRoomInfo(int roomID)
+        {
+            Room room;
+            Console.WriteLine($"getting room info of room with ID: {roomID}");
+            if (!Program.activeRoomsByRoomID.TryGetValue(roomID, out room))
+            {
+                Console.WriteLine($"error getting room info, room: {roomID}");
+                Console.WriteLine();
+                return "error in server";
+            }
+            string info;
+            if (room.Guest != null)
+            {
+                info = room.Host.Username + ';' + room.Guest.Username;
+            }
+            else
+            {
+                info = room.Host.Username + ';' + "null";
+            }
+            Console.WriteLine($"formated room info {info}");
+
+            return info;
         }
         public string getRoomList()
         {
             string roomList = "";
-            if(Program.activeRooms.Count == 0)
+            if (Program.activeRooms.Count == 0)
             {
                 return "empty";
             }
-            foreach(Room room in Program.activeRooms.Values)
+            foreach (Room room in Program.activeRooms.Values)
             {
                 string roomInfo = room.ID.ToString() + ';' + room.Name + ';' + room.Host.Username + ';' + room.Host.IpAddress;
-                Program.PrintMessage($"{room.ID} {room.Name} {room.Host.Username}");
-                if(roomList == "")
+                if (roomList == "")
                 {
                     roomList = roomInfo;
                 }
@@ -159,5 +247,17 @@ namespace SignalRTest
             }
             return roomList;
         }
+        #endregion
+
+        #region Setting game to start
+
+        public void SetGameReady(int roomID)
+        {
+            Program.activeRoomsByRoomID.TryGetValue(roomID, out Room room);
+
+            room.guestReady = true;
+        }
+
+        #endregion
     }
 }

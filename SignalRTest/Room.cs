@@ -13,12 +13,14 @@ namespace SignalRTest
         public string Name { get; set; }  
         public Player Host { get; set; }
         public Player Guest { get; set; }
+        public bool guestReady { get; set; }
         public Room (string name, Player host, Player guest = null)
         {
             ID = IDbuilder++;
             Name = name;
             Host = host;
             Guest = guest;
+            guestReady = false;
         }
     }
 }
